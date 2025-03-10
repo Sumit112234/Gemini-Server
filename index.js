@@ -148,7 +148,7 @@ app.get("/history", (req, res) => {
 });
 
 // 🛑 Clear chat history: /api/clear
-app.delete("/clear", (req, res) => {
+app.get("/clear", (req, res) => {
     chatHistory = [];
     res.json({ message: "Chat history cleared" });
 });
