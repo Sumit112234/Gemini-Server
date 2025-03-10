@@ -2,7 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import axios from "axios";
 import cors from "cors";
-
+import { GoogleGenerativeAI } from "@google/generative-ai";
 dotenv.config();
 
 const app = express();
@@ -16,27 +16,44 @@ app.use(express.json());
 // Store chat history (resets when server restarts)
 let chatHistory = [];
 
+
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY); // Use env for security
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
 // Function to get response from Gemini
+// const getGeminiResponse = async (prompt, instructions) => {
+//     try {
+//         const response = await axios.post(
+//             `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+//             {
+//                 contents: [
+//                     {
+//                         role: "user",
+//                         parts: [{ text: `${instructions ? instructions + ": " : ""}${prompt}` }]
+//                     }
+//                 ]
+//             }
+//         );
+
+//         return response.data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
+//     } catch (error) {
+//         console.error("Gemini API Error:", error.response?.data || error.message);
+//         return "Error: Failed to fetch response from Gemini";
+//     }
+// };
+
+
 const getGeminiResponse = async (prompt, instructions) => {
     try {
-        const response = await axios.post(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
-            {
-                contents: [
-                    {
-                        role: "user",
-                        parts: [{ text: `${instructions ? instructions + ": " : ""}${prompt}` }]
-                    }
-                ]
-            }
-        );
-
-        return response.data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
+        const fullPrompt = instructions ? `${instructions}: ${prompt}` : prompt;
+        const result = await model.generateContent(fullPrompt);
+        return result.response.text(); // Extract text response
     } catch (error) {
-        console.error("Gemini API Error:", error.response?.data || error.message);
+        console.error("Gemini API Error:", error.message || error);
         return "Error: Failed to fetch response from Gemini";
     }
 };
+
 
 const getImageFromApi = async (prompt) => {
     const response = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`);
