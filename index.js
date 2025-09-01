@@ -18,7 +18,7 @@ let chatHistory = [];
 
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY); // Use env for security
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 // Function to get response from Gemini
 // const getGeminiResponse = async (prompt, instructions) => {
