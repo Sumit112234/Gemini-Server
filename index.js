@@ -2,8 +2,10 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import { GoogleGenAI } from "@google/genai";
-
+import axios from "axios";
 dotenv.config();
+
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -18,32 +20,63 @@ if (!GEMINI_API_KEY) {
   throw new Error("Missing MY_REQUEST in .env file");
 }
 
+let chatHistory = [];
+
 const genAI = new GoogleGenAI({
   apiKey: GEMINI_API_KEY,
 });
 
 // Use a current Gemini model
-const model = "gemini-3.8-flash";
+const model = "gemini-3.5-flash-lite";
 
 // Generate response
-const getGeminiResponse = async (prompt, instructions) => {
-  try {
-    const fullPrompt = instructions
-      ? `${instructions}\n\n${prompt}`
-      : prompt;
 
+const getGeminiResponse = async (prompt, instructions, retries = 3, delay = 2000) => {
+  try {
     const response = await genAI.models.generateContent({
       model,
-      contents: fullPrompt,
+      contents: prompt,
+      ...(instructions && {
+        config: {
+          systemInstruction: instructions,
+        },
+      }),
     });
 
     return response.text || "No response generated";
   } catch (error) {
-    console.error("Gemini API Error:", error.message || error);
+    // Check if it's a 503 UNAVAILABLE or high demand error
+    const isOverloaded = error.status === 503 || error.message?.includes("high demand") || error.message?.includes("UNAVAILABLE");
 
+    if (isOverloaded && retries > 0) {
+      console.warn(`Model overloaded (503). Retrying in ${delay}ms... (${retries} retries left)`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      // Retry with doubled delay (exponential backoff)
+      return getGeminiResponse(prompt, instructions, retries - 1, delay * 2);
+    }
+
+    console.error("Gemini API Error:", error.message || error);
     throw error;
   }
 };
+// const getGeminiResponse = async (prompt, instructions) => {
+//   try {
+//     const fullPrompt = instructions
+//       ? `${instructions}\n\n${prompt}`
+//       : prompt;
+
+//     const response = await genAI.models.generateContent({
+//       model,
+//       contents: fullPrompt,
+//     });
+
+//     return response.text || "No response generated";
+//   } catch (error) {
+//     console.error("Gemini API Error:", error.message || error);
+
+//     throw error;
+//   }
+// };
 
 
 // import express from "express";
@@ -127,6 +160,8 @@ app.get("/chat", async (req, res) => {
     if (!prompt) {
         return res.status(400).json({ error: "Prompt is required" });
     }
+
+    // res.json({prompt, instructions})
 
     const reply = await getGeminiResponse(prompt, instructions);
 
